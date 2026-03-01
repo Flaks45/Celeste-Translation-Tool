@@ -196,7 +196,6 @@ def unify_keys(elements_by_language: dict[str, list[dict]]) -> dict[str, list[di
         new_elements = elements.copy()
 
         for key in all_keys - existing_keys:
-            # Add a new item with the missing key and empty content
             new_elements.append({
                 "key": key,
                 "content": [{"text": "", "comment": "", "extra": ""}]
@@ -217,7 +216,6 @@ def export_folder_to_xlsx_unified(folder_path: str, output_pathfile: str) -> Non
         folder_path (str): folder containing .txt files
         output_pathfile (str): path to save the XLSX workbook
     """
-    # Read all languages first
     elements_by_language = {}
     for filename in os.listdir(folder_path):
         if not check_extension(filename, ".txt"):
@@ -229,25 +227,21 @@ def export_folder_to_xlsx_unified(folder_path: str, output_pathfile: str) -> Non
         elements = interpret_txt_data(lines)
         elements_by_language[language_name] = elements
 
-    # Unify keys across all languages
     elements_by_language = unify_keys(elements_by_language)
 
-    # Convert to DataFrames with merge ranges
     sheets_data = {}
     for lang, elements in elements_by_language.items():
         df, merge_ranges = interpreted_to_dataframe(elements, language=lang)
         sheets_data[lang] = (df, merge_ranges)
 
-    # Write to Excel
     with pd.ExcelWriter(output_pathfile, engine="openpyxl") as writer:
         for sheet_name, (df, _) in sheets_data.items():
             df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-    # Merge keys in Excel
     wb = load_workbook(output_pathfile)
     for sheet_name, (_, merge_ranges) in sheets_data.items():
         ws = wb[sheet_name]
-        key_col = 1  # column A
+        key_col = 1
         for start_row, end_row in merge_ranges:
             if start_row != end_row:
                 ws.merge_cells(
@@ -271,7 +265,6 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
     """
     wb = load_workbook(xlsx_path)
     
-    # Determine base sheet
     if base_language is None:
         base_sheet = wb.sheetnames[0]
     else:
@@ -281,13 +274,12 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
     
     ws_base = wb[base_sheet]
 
-    # Read rows from base sheet
     base_rows = []
     current_key = ""
     new_key = False
 
     for row in ws_base.iter_rows(min_row=2, values_only=True):
-        key, extra, comment, content = row[:4]  # original 4 columns
+        key, extra, comment, content = row[:4]
 
         if key not in (None, ""):
             current_key = key
@@ -302,7 +294,6 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
             "content": content if content else ""
         })
     
-    # Add new sheets
     for lang in new_languages:
         if lang in wb.sheetnames:
             continue
@@ -311,7 +302,7 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
         # Header row: keep original 4 columns + 4 new ones
         ws.append([
             "Key", "Extra", f"Comments", f"Contents",
-            "", "Translation notes", "Original Content", "Original Extra", "Original Comments"
+            "", "Translation notes", "Original Extra", "Original Comments", "Original Content"
         ])
         
         # Write rows
@@ -323,18 +314,18 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
                 "",
                 "",
                 "",
-                row_data["content"],
                 row_data["extra"],
-                row_data["comment"]
+                row_data["comment"],
+                row_data["content"]
             ])
     
         # Merge Key column automatically
         start_row = None
 
-        for row in range(2, ws.max_row + 1):  # start after header
+        for row in range(2, ws.max_row + 1):
             cell_value = ws.cell(row=row, column=1).value
 
-            if cell_value:  # new key starts
+            if cell_value:
                 if start_row and row - 1 > start_row:
                     ws.merge_cells(start_row=start_row, start_column=1,
                                 end_row=row - 1, end_column=1)
@@ -424,16 +415,13 @@ def read_xlsx_raw(xlsx_path: str) -> dict[str, list[dict[str, str]]]:
     result = {}
 
     for ws in wb.worksheets:
-        # Find header row (assume first row)
         headers = [cell.value for cell in ws[1]]
-        # Map column indexes for required fields
         col_map = {}
         for idx, h in enumerate(headers):
             if h in ("Key", "Extra", "Comments", "Contents"):
                 col_map[h] = idx
 
         rows_data = []
-        # Read all rows starting from row 2
         for row in ws.iter_rows(min_row=2, values_only=True):
             row_dict = {}
             for key in ("Key", "Extra", "Comments", "Contents"):
