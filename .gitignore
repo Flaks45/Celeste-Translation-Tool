@@ -1,5 +1,6 @@
 # X.txt samples
 *.txt
+!requirements.txt
 samples/
 
 # Byte-compiled / optimized / DLL files

@@ -289,9 +289,9 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
 
         base_rows.append({
             "key": current_key if new_key else "",
+            "content": content if content else "",
             "extra": extra if extra else "",
-            "comment": comment if comment else "",
-            "content": content if content else ""
+            "comment": comment if comment else ""
         })
     
     for lang in new_languages:
@@ -301,8 +301,8 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
         
         # Header row: keep original 4 columns + 4 new ones
         ws.append([
-            "Key", "Extra", f"Comments", f"Contents",
-            "", "Translation notes", "Original Extra", "Original Comments", "Original Content"
+            "Key", "Text", "Extra", "Comments",
+            "", "Translation notes", "Original Text", "Original Extra", "Original Comments"
         ])
         
         # Write rows
@@ -314,9 +314,9 @@ def add_languages(xlsx_path: str, new_languages: list[str], base_language: str =
                 "",
                 "",
                 "",
+                row_data["content"],
                 row_data["extra"],
                 row_data["comment"],
-                row_data["content"]
             ])
     
         # Merge Key column automatically
@@ -381,13 +381,13 @@ def check_xlsx_columns(xlsx_path: str, required_columns=None) -> dict[str, bool]
     Args:
         xlsx_path (str): path to the XLSX file
         required_columns (list, optional): list of columns to check. Defaults to 
-                                           ["Key", "Extra", "Comments", "Contents"]
+                                           ["Key", "Text", "Extra", "Comments"]
 
     Returns:
         dict: {sheet_name: True if all columns exist, False otherwise}
     """
     if required_columns is None:
-        required_columns = ["Key", "Extra", "Comments", "Contents"]
+        required_columns = ["Key", "Text", "Extra", "Comments"]
 
     wb = load_workbook(xlsx_path, data_only=True)
     results = {}
@@ -401,7 +401,7 @@ def check_xlsx_columns(xlsx_path: str, required_columns=None) -> dict[str, bool]
 
 def read_xlsx_raw(xlsx_path: str) -> dict[str, list[dict[str, str]]]:
     """
-    Reads an XLSX workbook and extracts only the columns: Key, Extra, Comments, Contents.
+    Reads an XLSX workbook and extracts only the columns: Key, Extra, Comments, Text.
     Ignores formatting and other columns. Empty cells are returned as empty strings.
 
     Args:
@@ -409,7 +409,7 @@ def read_xlsx_raw(xlsx_path: str) -> dict[str, list[dict[str, str]]]:
 
     Returns:
         dict: {sheet_name: list of rows}, where each row is a dict with keys:
-              "Key", "Extra", "Comments", "Contents"
+              "Key", "Text", "Extra", "Comments"
     """
     wb = load_workbook(xlsx_path, data_only=True)
     result = {}
@@ -418,13 +418,13 @@ def read_xlsx_raw(xlsx_path: str) -> dict[str, list[dict[str, str]]]:
         headers = [cell.value for cell in ws[1]]
         col_map = {}
         for idx, h in enumerate(headers):
-            if h in ("Key", "Extra", "Comments", "Contents"):
+            if h in ("Key", "Text", "Extra", "Comments"):
                 col_map[h] = idx
 
         rows_data = []
         for row in ws.iter_rows(min_row=2, values_only=True):
             row_dict = {}
-            for key in ("Key", "Extra", "Comments", "Contents"):
+            for key in ("Key", "Text", "Extra", "Comments"):
                 col_idx = col_map.get(key)
                 row_dict[key] = str(row[col_idx]) if col_idx is not None and row[col_idx] is not None else ""
             rows_data.append(row_dict)
@@ -439,12 +439,12 @@ def export_xlsx_to_txt(xlsx_data: dict[str, list[dict[str, str]]], output_folder
     
     Rules:
     1. If Key exists, write 'KEY= ' first.
-    2. Only one of 'Contents' or 'Extra' can exist per line. If both, raises an Error.
+    2. Only one of 'Text' or 'Extra' can exist per line. If both, raises an Error.
     3. Comment, if exists, goes after a '# '.
     4. Keep empty lines.
     
     Args:
-        xlsx_data (dict): {sheet_name: list of row dicts with Key, Extra, Comments, Contents}
+        xlsx_data (dict): {sheet_name: list of row dicts with Key, Extra, Comments, Text}
         output_folder (str): folder to save the TXT files
     """
     import os
@@ -458,8 +458,8 @@ def export_xlsx_to_txt(xlsx_data: dict[str, list[dict[str, str]]], output_folder
 
         for row in rows:
             key = row.get("Key", "").strip()
+            content = row.get("Text", "").strip()
             extra = row.get("Extra", "").strip()
-            content = row.get("Contents", "").strip()
             comment = row.get("Comments", "").strip()
 
             line_parts = []
@@ -468,7 +468,7 @@ def export_xlsx_to_txt(xlsx_data: dict[str, list[dict[str, str]]], output_folder
                 line_parts.append(f"{key}=")
 
             if extra and content:
-                raise ValueError(f"Row in sheet '{sheet_name}' has both 'Extra' and 'Contents'.")
+                raise ValueError(f"Row in sheet '{sheet_name}' has both 'Extra' and 'Text'.")
             elif content:
                 line_parts.append(content)
             elif extra:
